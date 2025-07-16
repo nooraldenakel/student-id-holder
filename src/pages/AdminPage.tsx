@@ -46,10 +46,10 @@ const AdminPage = () => {
   const [showCustomInput, setShowCustomInput] = useState(false)
 
   // Print status management
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [originalPrintStatuses] = useState<{[key: string]: boolean}>({})
-  const [currentPrintStatuses, setCurrentPrintStatuses] = useState<{[key: string]: boolean}>({})
-  const [savingChanges, setSavingChanges] = useState(false)
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+    const [originalPrintStatuses, setOriginalPrintStatuses] = useState<{ [key: string]: boolean }>({})
+    const [currentPrintStatuses, setCurrentPrintStatuses] = useState<{ [key: string]: boolean }>({})
+    const [savingChanges, setSavingChanges] = useState(false)
 
   // Preset options for students per page
   const perPageOptions = [10, 30, 50, 100, 150, 200]
@@ -257,20 +257,20 @@ const AdminPage = () => {
   //  return pages
   //}
 
-  // Handle print status change
-  const handlePrintStatusChange = (studentId: string, isPrinted: boolean) => {
-    // Update current print statuses
-    setCurrentPrintStatuses(prev => ({
-      ...prev,
-      [studentId]: isPrinted
-    }))
-    
-    // Check if there are unsaved changes
-    const hasChanges = Object.keys(originalPrintStatuses).some(id => 
-      originalPrintStatuses[id] !== (id === studentId ? isPrinted : currentPrintStatuses[id])
-    )
-    setHasUnsavedChanges(hasChanges)
-  }
+    // Handle print status change
+   const handlePrintStatusChange = (studentId: string, isPrinted: boolean) => {
+        // Update current print statuses
+        setCurrentPrintStatuses(prev => ({
+            ...prev,
+            [studentId]: isPrinted
+        }))
+
+        // Check if there are unsaved changes
+        const hasChanges = Object.keys(originalPrintStatuses).some(id =>
+            originalPrintStatuses[id] !== (id === studentId ? isPrinted : currentPrintStatuses[id])
+        )
+        setHasUnsavedChanges(hasChanges)
+    }
 
   // Handle select all
   const handleSelectAll = () => {
@@ -303,28 +303,48 @@ const AdminPage = () => {
   }
 
   // Handle save changes
-  const handleSaveChanges = async () => {
-    setSavingChanges(true)
-    
-    // Simulate API call
-    //setTimeout(() => {
-    //  // Update the actual mock data
-    //  Object.keys(currentPrintStatuses).forEach(studentId => {
-    //    const studentIndex = mockStudents.findIndex(s => s.id === studentId)
-    //    if (studentIndex !== -1) {
-    //      mockStudents[studentIndex].isPrinted = currentPrintStatuses[studentId]
-    //    }
-    //  })
-      
-    //  // Update original statuses to current ones
-    //  setOriginalPrintStatuses({ ...currentPrintStatuses })
-    //  setHasUnsavedChanges(false)
-    //  setSavingChanges(false)
-      
-    //  // Force re-render
-    //  setFilters(prev => ({ ...prev }))
-    //}, 1500)
-  }
+   const handleSaveChanges = async () => {
+        setSavingChanges(true);
+
+        // build minimal payload
+        const changedStudents = Object.keys(currentPrintStatuses)
+            .filter(examNumber => currentPrintStatuses[examNumber] !== originalPrintStatuses[examNumber])
+            .map(examNumber => ({
+                id: parseInt(examNumber, 10),
+                printStatus: currentPrintStatuses[examNumber]
+            }));
+
+        if (changedStudents.length === 0) {
+            console.log("No changes to save");
+            setSavingChanges(false);
+            return;
+        }
+
+        try {
+            const response = await fetch("https://student-id-info-back-production.up.railway.app/student/print-status", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(changedStudents)
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to update print statuses");
+            }
+
+            console.log(await response.text());
+
+            // sync local state
+            setOriginalPrintStatuses({ ...currentPrintStatuses });
+            setHasUnsavedChanges(false);
+
+        } catch (error) {
+            console.error("Error updating print statuses:", error);
+        } finally {
+            setSavingChanges(false);
+            // trigger re-render if needed
+            setFilters(prev => ({ ...prev }));
+        }
+    };
 
   // Pagination component
   const PaginationComponent = () => {
